@@ -29,9 +29,19 @@ class Peer(threading.Thread):
 
             """
 
+            self.request.settimeout(10)
+
             while self.server.peer.running:
-                data = read_string(self.request)
-                cur_thread = threading.current_thread()
+                try:
+                    data = read_string(self.request)
+                except socket.timeout:
+                    # that's ok, just try again
+                    continue
+
+                if data is None:
+                    logging.error("client went away")
+                    break
+
                 logging.info("Received vote from client: %s", data)
                 vote = self.server.peer.vote
                 self.request.sendall(write_string(str(vote)))
@@ -65,22 +75,24 @@ class Peer(threading.Thread):
                 # first, lets connect
                 try:
                     sock = socket.create_connection((self.pconfig.host, self.pconfig.port), timeout)
-                    break
                 except socket.timeout:
                     logging.error("Connection timeout..sleeping")
                     time.sleep(3)
+                    continue
 
-            # send out vote every 60 secs
-            while self.running:
-                try:
-                    sock.sendall(write_string(str(self.peer.vote)))
-                    response = read_string(sock)
-                    logging.info("Received reply vote: %s", response)
-                    time.sleep(60)
-                except socket.error as se:
-                    logging.error("Failed to read/write: %s", se)
-                    sock.close()
-                    break
+                # send out vote every 60 secs
+                while self.running:
+                    try:
+                        sock.sendall(write_string(str(self.peer.vote)))
+                        response = read_string(sock)
+                        if response is None:
+                            logging.error("server went away")
+                        logging.info("Received reply vote: %s", response)
+                        time.sleep(60)
+                    except socket.error as se:
+                        logging.error("Failed to read/write: %s", se)
+                        sock.close()
+                        break
 
     def __init__(self, confs):
         """ parse conf """
