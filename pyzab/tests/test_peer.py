@@ -38,7 +38,7 @@ class PeerTestCase(unittest.TestCase):
             peers.append(peer)
 
         # TODO: wait for election to happen
-        time.sleep(1)
+        time.sleep(5)
         for peer in peers: peer.running = False
 
         # wait for threads to exit

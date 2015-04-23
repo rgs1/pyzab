@@ -12,25 +12,6 @@ from .state import State
 from .vote import Vote
 
 
-class PeerHandler(SocketServer.BaseRequestHandler):
-    def handle(self):
-        data = read_string(self.request)
-        cur_thread = threading.current_thread()
-        logging.info("Received vote from client: %s", data)
-        vote = Vote(
-            self.server.peer_config.myid,
-            State.LOOKING,
-            self.server.peer_config.myid,
-            State.LOOKING
-        )
-        self.request.sendall(write_string(str(vote)))
-
-
-class PeerServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
-    allow_reuse_address = True
-    peer_config = None
-
-
 class Peer(threading.Thread):
     """
     A peer receives connections from peers w/ > id and connects to peers w/
@@ -38,6 +19,68 @@ class Peer(threading.Thread):
 
     It then sends & receives votes until a leader is elected.
     """
+
+    class ServerHandler(SocketServer.BaseRequestHandler):
+        def handle(self):
+            """
+            loop & exchange votes w/ the remote peer's vote
+
+            TODO: check if a connection exists for this peer & reject if so
+
+            """
+
+            while self.server.peer.running:
+                data = read_string(self.request)
+                cur_thread = threading.current_thread()
+                logging.info("Received vote from client: %s", data)
+                vote = self.server.peer.vote
+                self.request.sendall(write_string(str(vote)))
+
+    class Server(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
+        allow_reuse_address = True
+        peer_config = None
+
+    class Client(threading.Thread):
+        """ handles connection to a remote peer """
+
+        TIMEOUT = 5
+
+        def __init__(self, peer, pconfig):
+            super(Peer.Client, self).__init__()
+            self.setDaemon(True)
+
+            self.running = False
+            self.peer = peer
+            self.pconfig = pconfig
+            self.myid = self.peer.config.myid
+
+        def run(self):
+            """ main loop """
+
+            logging.info("Connecting to peer %d (myid=%d)", self.pconfig.peer_id, self.myid)
+            self.running = True
+            timeout = Peer.Client.TIMEOUT
+
+            while self.running:
+                # first, lets connect
+                try:
+                    sock = socket.create_connection((self.pconfig.host, self.pconfig.port), timeout)
+                    break
+                except socket.timeout:
+                    logging.error("Connection timeout..sleeping")
+                    time.sleep(3)
+
+            # send out vote every 60 secs
+            while self.running:
+                try:
+                    sock.sendall(write_string(str(self.peer.vote)))
+                    response = read_string(sock)
+                    logging.info("Received reply vote: %s", response)
+                    time.sleep(60)
+                except socket.error as se:
+                    logging.error("Failed to read/write: %s", se)
+                    sock.close()
+                    break
 
     def __init__(self, confs):
         """ parse conf """
@@ -47,11 +90,14 @@ class Peer(threading.Thread):
         self.running = False
         self.config = Config.parse(confs)
 
+        # initially, we vote for ourselves
+        self.vote = Vote(self.config.myid, State.LOOKING, self.config.myid, State.LOOKING)
+
     def run(self):
         self.running = True
 
-        server = PeerServer(self.config.host_port, PeerHandler)
-        server.peer_config = self.config
+        server = Peer.Server(self.config.host_port, Peer.ServerHandler)
+        server.peer = self
         ip, port = server.server_address
 
         self.name = "Peer({}:{})".format(ip, port)
@@ -63,23 +109,17 @@ class Peer(threading.Thread):
 
         logging.info("Server loop running in thread: %s", server_thread.name)
 
-        for peer in self.config.peers:
-            if self.config.myid > peer.peer_id:
-                logging.info("Connecting to peer %d (myid=%d)", peer.peer_id, self.config.myid)
-                vote = Vote(self.config.myid, State.LOOKING, self.config.myid, State.LOOKING)
-                self.connect(peer.host, peer.port, str(vote))
+        clients = []
+        for pconfig in self.config.peers:
+            if self.config.myid > pconfig.peer_id:
+                client = Peer.Client(self, pconfig)
+                client.start()
+                clients.append(client)
 
         while self.running:
             time.sleep(0.5)
 
+        # shutdown
+        for client in clients:
+            client.running = False
         server.shutdown()
-
-    def connect(self, ip, port, message):
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.connect((ip, port))
-        try:
-            sock.sendall(write_string(message))
-            response = read_string(sock)
-            logging.info("Received reply vote: %s", response)
-        finally:
-            sock.close()
