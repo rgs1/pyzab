@@ -38,8 +38,16 @@ class PeerTestCase(unittest.TestCase):
             peers.append(peer)
 
         # TODO: wait for election to happen
-        time.sleep(5)
-        for peer in peers: peer.running = False
+        waiting = True
+        while waiting:
+            waiting = False
+            for peer in peers:
+                if len(peer.votes) == len(peers):
+                    peer.running = False
+                else:
+                    waiting = True
+            if waiting:
+                time.sleep(1)
 
         # wait for threads to exit
         while any(peer.isAlive() for peer in peers): pass

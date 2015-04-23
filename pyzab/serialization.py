@@ -21,4 +21,5 @@ def read_string(sock):
 
 def write_string(message):
     """ prepends the (i32) length to message """
+    message = str(message)
     return int_struct.pack(len(message)) + message

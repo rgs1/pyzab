@@ -29,6 +29,7 @@ class Peer(threading.Thread):
 
             """
 
+            myid = self.server.peer.config.myid
             self.request.settimeout(10)
 
             while self.server.peer.running:
@@ -42,9 +43,16 @@ class Peer(threading.Thread):
                     logging.error("client went away")
                     break
 
-                logging.info("Received vote from client: %s", data)
-                vote = self.server.peer.vote
-                self.request.sendall(write_string(str(vote)))
+                try:
+                    othervote = Vote.parse(data)
+                    logging.info("received vote from client: %s", othervote)
+                    self.server.peer.votes[othervote.myid] = othervote
+                except ValueError:
+                    logging.error("badly serialized vote: %s", data)
+                    break
+
+                myvote = self.server.peer.votes[myid]
+                self.request.sendall(write_string(myvote))
 
     class Server(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
         allow_reuse_address = True
@@ -70,24 +78,35 @@ class Peer(threading.Thread):
             logging.info("Connecting to peer %d (myid=%d)", self.pconfig.peer_id, self.myid)
             self.running = True
             timeout = Peer.Client.TIMEOUT
+            endpoint = (self.pconfig.host, self.pconfig.port)
 
             while self.running:
                 # first, lets connect
                 try:
-                    sock = socket.create_connection((self.pconfig.host, self.pconfig.port), timeout)
+                    sock = socket.create_connection(endpoint, timeout)
                 except socket.timeout:
                     logging.error("Connection timeout..sleeping")
                     time.sleep(3)
                     continue
 
-                # send out vote every 60 secs
+                # next, send out vote every 60 secs
                 while self.running:
+                    vote = self.peer.votes[self.myid]
                     try:
-                        sock.sendall(write_string(str(self.peer.vote)))
-                        response = read_string(sock)
-                        if response is None:
+                        sock.sendall(write_string(vote))
+                        data = read_string(sock)
+                        if data is None:
                             logging.error("server went away")
-                        logging.info("Received reply vote: %s", response)
+
+                        try:
+                            othervote = Vote.parse(data)
+                            logging.info("received vote from server: %s", othervote)
+                            self.peer.votes[othervote.myid] = othervote
+                        except ValueError:
+                            logging.error("badly serialized vote: %s", data)
+                            sock.close()
+                            break
+
                         time.sleep(60)
                     except socket.error as se:
                         logging.error("Failed to read/write: %s", se)
@@ -103,7 +122,10 @@ class Peer(threading.Thread):
         self.config = Config.parse(confs)
 
         # initially, we vote for ourselves
-        self.vote = Vote(self.config.myid, State.LOOKING, self.config.myid, State.LOOKING)
+        myid = self.config.myid
+        self.votes = {
+            myid: Vote(self.config.myid, State.LOOKING, self.config.myid, State.LOOKING),
+        }
 
     def run(self):
         self.running = True
