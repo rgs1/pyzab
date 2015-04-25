@@ -13,6 +13,19 @@ class Vote(namedtuple('Vote', 'myid mystate proposed_id zxid')):
     def __str__(self):
         return json.dumps(self._asdict())
 
+    def __gt__(self, other):
+        """
+        Bigger zxid wins. if that's tied, smaller id breaks the tie.
+        """
+        if self.zxid > other.zxid:
+            return True
+        if self.zxid == other.zxid and self.proposed_id < other.proposed_id:
+            return True
+        return False
+
+    def __lt__(self, other):
+        return other > self
+
     @classmethod
     def parse(cls, vstr):
         """
