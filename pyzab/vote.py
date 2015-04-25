@@ -19,4 +19,9 @@ class Vote(namedtuple('Vote', 'myid mystate proposed_id zxid')):
         Given a valid JSON repr of a Vote, returns the corresponding Vote object
         """
         vd = json.loads(vstr)
-        return Vote(vd["myid"], vd["mystate"], vd["proposed_id"], vd["zxid"])
+        return Vote(
+            int(vd["myid"]),
+            int(vd["mystate"]),
+            int(vd["proposed_id"]),
+            vd["zxid"] if type(vd["zxid"]) == int else int(vd["zxid"], 16)
+        )

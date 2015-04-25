@@ -1,16 +1,14 @@
 """ config parser """
 
+from collections import namedtuple
+
 import re
 
 
-class PeerConfig(object):
+class PeerConfig(namedtuple('PeerConfig', 'peer_id host election_port zab_port client_port')):
     """
     Contains a peer's coordinates
     """
-    def __init__(self, peer_id, host, election_port, zab_port=None, client_port=None):
-        self.peer_id, self.host, self.election_port = peer_id, host, election_port
-        self.zab_port, self.client_port = zab_port, client_port
-
     @property
     def election_endpoint(self):
         return self.host, self.election_port
@@ -49,6 +47,8 @@ class Config(object):
         myid=%d
 
         and returns the corresponding Config object.
+
+        TODO: add zab & client ports
         """
         myid = -1
         peers = []
@@ -59,7 +59,7 @@ class Config(object):
                     key, value = line.split("=")
                     _, peer_id = key.split(".")
                     host, port = value.rsplit(":", 1)
-                    peer = PeerConfig(int(peer_id), host, int(port))
+                    peer = PeerConfig(int(peer_id), host, int(port), 0, 0)
                     peers.append(peer)
                 except ValueError:
                     raise ValueError("Bad config line: %s" % line)
