@@ -80,7 +80,7 @@ class Peer(threading.Thread):
             logging.info("Connecting to peer %d (myid=%d)", self.pconfig.peer_id, self.myid)
             self.running = True
             timeout = Peer.Client.TIMEOUT
-            endpoint = (self.pconfig.host, self.pconfig.port)
+            endpoint = self.pconfig.election_endpoint
 
             while self.running:
                 # first, lets connect
@@ -132,7 +132,7 @@ class Peer(threading.Thread):
     def run(self):
         self.running = True
 
-        server = Peer.Server(self.config.host_port, Peer.ServerHandler)
+        server = Peer.Server(self.config.election_endpoint, Peer.ServerHandler)
         server.peer = self
         ip, port = server.server_address
 

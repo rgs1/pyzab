@@ -7,8 +7,13 @@ class PeerConfig(object):
     """
     Contains a peer's coordinates
     """
-    def __init__(self, peer_id, host, port):
-        self.peer_id, self.host, self.port = peer_id, host, port
+    def __init__(self, peer_id, host, election_port, zab_port=None, client_port=None):
+        self.peer_id, self.host, self.election_port = peer_id, host, election_port
+        self.zab_port, self.client_port = zab_port, client_port
+
+    @property
+    def election_endpoint(self):
+        return self.host, self.election_port
 
 
 class Config(object):
@@ -27,8 +32,8 @@ class Config(object):
                 self.peers.append(peer)
 
     @property
-    def host_port(self):
-        return self.me.host, self.me.port
+    def election_endpoint(self):
+        return self.me.election_endpoint
 
     @classmethod
     def parse(cls, confs):
