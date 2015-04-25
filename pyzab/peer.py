@@ -72,6 +72,8 @@ class Peer(threading.Thread):
             self.pconfig = pconfig
             self.myid = self.peer.config.myid
 
+            self.start()
+
         def run(self):
             """ main loop """
 
@@ -146,9 +148,7 @@ class Peer(threading.Thread):
         clients = []
         for pconfig in self.config.peers:
             if self.config.myid > pconfig.peer_id:
-                client = Peer.Client(self, pconfig)
-                client.start()
-                clients.append(client)
+                clients.append(Peer.Client(self, pconfig))
 
         while self.running:
             time.sleep(0.5)
