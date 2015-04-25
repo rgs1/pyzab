@@ -13,6 +13,6 @@ class VoteTestCase(unittest.TestCase):
         pass
 
     def test_serialize_deserialize(self):
-        v1 = Vote(1, State.LOOKING, 3, State.LEADING)
+        v1 = Vote(1, State.LOOKING, 3, 0xdeadbeef)
         v2 = Vote.parse(str(v1))
         self.assertTrue(v1 == v2)

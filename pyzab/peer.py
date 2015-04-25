@@ -126,7 +126,7 @@ class Peer(threading.Thread):
         # initially, we vote for ourselves
         myid = self.config.myid
         self.votes = {
-            myid: Vote(self.config.myid, State.LOOKING, self.config.myid, State.LOOKING),
+            myid: Vote(self.config.myid, State.LOOKING, self.config.myid, 0x0),
         }
 
     def run(self):
