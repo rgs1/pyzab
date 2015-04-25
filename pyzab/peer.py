@@ -84,8 +84,8 @@ class Peer(threading.Thread):
                 # first, lets connect
                 try:
                     sock = socket.create_connection(endpoint, timeout)
-                except socket.timeout:
-                    logging.error("Connection timeout..sleeping")
+                except socket.error as se:
+                    logging.error("connection error: %s", se)
                     time.sleep(3)
                     continue
 
@@ -109,7 +109,7 @@ class Peer(threading.Thread):
 
                         time.sleep(60)
                     except socket.error as se:
-                        logging.error("Failed to read/write: %s", se)
+                        logging.error("failed to read/write: %s", se)
                         sock.close()
                         break
 
