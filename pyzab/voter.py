@@ -1,4 +1,4 @@
-""" Peer handler: elect a leader """
+""" Handles setting up voters so an election can be called """
 
 import logging
 import socket
@@ -12,7 +12,7 @@ from .state import State
 from .vote import Vote
 
 
-class Peer(threading.Thread):
+class Voter(threading.Thread):
     """
     A peer receives connections from peers w/ > id and connects to peers w/
     a lower id.
@@ -64,7 +64,7 @@ class Peer(threading.Thread):
         TIMEOUT = 5
 
         def __init__(self, peer, pconfig):
-            super(Peer.Client, self).__init__()
+            super(Voter.Client, self).__init__()
             self.setDaemon(True)
 
             self.running = False
@@ -79,7 +79,7 @@ class Peer(threading.Thread):
 
             logging.info("Connecting to peer %d (myid=%d)", self.pconfig.peer_id, self.myid)
             self.running = True
-            timeout = Peer.Client.TIMEOUT
+            timeout = Voter.Client.TIMEOUT
             endpoint = self.pconfig.election_endpoint
 
             while self.running:
@@ -117,7 +117,7 @@ class Peer(threading.Thread):
 
     def __init__(self, confs):
         """ parse conf """
-        super(Peer, self).__init__()
+        super(Voter, self).__init__()
         self.setDaemon(True)
 
         self.running = False
@@ -132,14 +132,14 @@ class Peer(threading.Thread):
     def run(self):
         self.running = True
 
-        server = Peer.Server(self.config.election_endpoint, Peer.ServerHandler)
+        server = Voter.Server(self.config.election_endpoint, Voter.ServerHandler)
         server.peer = self
         ip, port = server.server_address
 
-        self.name = "Peer({}:{})".format(ip, port)
+        self.name = "Voter({}:{})".format(ip, port)
 
         server_thread = threading.Thread(target=server.serve_forever)
-        server_thread.name = "PeerServer({}:{})".format(ip, port)
+        server_thread.name = "VoterServer({}:{})".format(ip, port)
         server_thread.daemon = True
         server_thread.start()
 
@@ -148,7 +148,7 @@ class Peer(threading.Thread):
         clients = []
         for pconfig in self.config.peers:
             if self.config.myid > pconfig.peer_id:
-                clients.append(Peer.Client(self, pconfig))
+                clients.append(Voter.Client(self, pconfig))
 
         while self.running:
             time.sleep(0.5)

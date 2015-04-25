@@ -4,11 +4,11 @@ import logging
 import time
 import unittest
 
-from pyzab.peer import Peer
+from pyzab.voter import Voter
 
 
-class PeerTestCase(unittest.TestCase):
-    """ test Peer class """
+class VoterTestCase(unittest.TestCase):
+    """ test Voter class """
 
     def setUp(self):
         pass
@@ -33,7 +33,7 @@ class PeerTestCase(unittest.TestCase):
         peers = []
         for peer_id in range(0, 5):
             confs = conf_template % (tuple(ports) + tuple([peer_id]))
-            peer = Peer(confs)
+            peer = Voter(confs)
             peer.start()
             peers.append(peer)
 
