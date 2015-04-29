@@ -12,7 +12,7 @@ class FastLeaderElection(object):
 
     def __init__(self, peers):
         self.peers_by_id = dict((p.peer_id, p) for p in peers)
-        self.votes = set()
+        self.votes_by_id = {}
 
     @property
     def peers(self):
@@ -22,14 +22,20 @@ class FastLeaderElection(object):
         """
         updates the vote
         """
-        self.votes.add(vote)
+        self.votes_by_id[vote.myid] = vote
+
+    def get(self, vid):
+        """
+        get vote by id
+        """
+        return self.votes_by_id.get(vid, None)
 
     @property
     def has_quorum(self):
         """
         can the election take place?
         """
-        return len(self.votes) >= self.quorum
+        return len(self.votes_by_id) >= self.quorum
 
     @property
     def quorum(self):
@@ -39,7 +45,7 @@ class FastLeaderElection(object):
         return (len(self.peers) / 2) + 1
 
     @property
-    def leader(self):
+    def leader_id(self):
         """
         returns the elected peer (None, if no quorum or peers haven't agreed)
 
@@ -49,7 +55,7 @@ class FastLeaderElection(object):
             return None
 
         tally = defaultdict(int)
-        for vote in self.votes:
+        for vote in self.votes_by_id.values():
             tally[vote.proposed_id] += 1
 
         results = sorted(tally.items(), key=operator.itemgetter(1), reverse=True)
@@ -59,4 +65,4 @@ class FastLeaderElection(object):
             return None
 
         assert leader_id in self.peers_by_id
-        return self.peers_by_id[leader_id]
+        return leader_id

@@ -29,12 +29,11 @@ class FastLeaderElectionTestCase(unittest.TestCase):
 
         self.assertEquals(fle.quorum, 2)
         self.assertFalse(fle.has_quorum)
-        self.assertTrue(fle.leader == None)
+        self.assertTrue(fle.leader_id == None)
 
         fle.update(v0)
         fle.update(v1)
         fle.update(v2)
 
         self.assertTrue(fle.has_quorum)
-        print str(fle.leader)
-        self.assertTrue(fle.leader == peers[0])
+        self.assertTrue(fle.leader_id == 0)

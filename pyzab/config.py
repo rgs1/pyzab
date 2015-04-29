@@ -30,6 +30,13 @@ class Config(object):
                 self.peers.append(peer)
 
     @property
+    def members(self):
+        """
+        me + peers
+        """
+        return [self.me] + self.peers
+
+    @property
     def election_endpoint(self):
         return self.me.election_endpoint
 

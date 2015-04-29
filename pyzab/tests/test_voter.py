@@ -16,6 +16,27 @@ class VoterTestCase(unittest.TestCase):
     def test_basic(self):
         logging.basicConfig(level=logging.INFO)
 
+        self.run_election(
+            zxids=[0x0, 0x0, 0x0, 0x0, 0x0],
+            expected_leader_id=0
+        )
+
+        self.run_election(
+            zxids=[0x0, 0x100, 0x100, 0x100, 0x100],
+            expected_leader_id=1
+        )
+
+        self.run_election(
+            zxids=[0x100, 0x100, 0x100, 0x0, 0x0],
+            expected_leader_id=0
+        )
+
+        self.run_election(
+            zxids=[0x0, 0x0, 0x100, 0x100, 0x100],
+            expected_leader_id=2
+        )
+
+    def run_election(self, zxids, expected_leader_id):
         conf_template = """
            server.0=localhost:%d
            server.1=localhost:%d
@@ -29,27 +50,25 @@ class VoterTestCase(unittest.TestCase):
         # TODO: assign available ports
         ports = [port for port in range(3000, 3005)]
 
-        # start peers
-        peers = []
+        # start voters
+        voters = []
         for peer_id in range(0, 5):
             confs = conf_template % (tuple(ports) + tuple([peer_id]))
-            peer = Voter(confs)
-            peer.start()
-            peers.append(peer)
+            voters.append(Voter(confs, zxid=zxids[peer_id]))
 
-        # TODO: wait for election to happen
-        waiting = True
-        while waiting:
-            waiting = False
-            for peer in peers:
-                if len(peer.votes) == len(peers):
-                    peer.running = False
-                else:
-                    waiting = True
-            if waiting:
-                time.sleep(1)
+        # wait for all voters to find the elected leader
+        election_done = False
+        for _ in xrange(0, 5):
+            if all(voter.leader_id is not None for voter in voters):
+                election_done = True
+                break
+            time.sleep(1.0)
+
+        self.assertTrue(election_done)
 
         # wait for threads to exit
-        while any(peer.isAlive() for peer in peers): pass
+        for voter in voters:
+            voter.running = False
+        while any(voter.isAlive() for voter in voters): pass
 
-        self.assertTrue(True)
+        self.assertTrue(all(voter.leader_id == expected_leader_id for voter in voters))
